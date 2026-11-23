@@ -1,4 +1,4 @@
-# Day-Night terminator – Windy.com plugin
+# Day-Night Globe – Windy.com plugin
 
 Draws the day/night terminator and twilight boundaries on Windy.com and keeps them in sync
 with the forecast timeline. Unlike the old terminator plugin, it **works on the 3D globe**.

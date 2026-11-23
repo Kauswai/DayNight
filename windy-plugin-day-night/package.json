@@ -1,5 +1,5 @@
 {
-    "name": "windy-plugin-day-night",
+    "name": "windy-plugin-day-night-globe",
     "version": "1.0.0",
     "description": "Windy plugin: day/night terminator and twilight zones on the 2D map and 3D globe",
     "main": "dist/plugin.min.js",
