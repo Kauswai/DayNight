@@ -1,31 +1,45 @@
 # Day-Night Globe – Windy.com plugin
 
-Draws the day/night terminator and twilight boundaries on Windy.com and keeps them in sync
-with the forecast timeline. Unlike the old terminator plugin, it **works on the 3D globe**.
+Draws the day/night terminator, twilight boundaries, golden hour and low-sun lines on
+Windy.com, kept in sync with the forecast timeline. It works on the **2D map and on Windy's 3D
+globe**.
 
-| Line | Sun altitude | Meaning |
+| Line (default colour) | Sun altitude | Meaning |
 |---|---|---|
-| True terminator (optional, yellow dotted) | 0° | geometric day/night line |
+| Low sun (pale yellow, dashed) | 20° | below this the sun is low |
+| Golden hour (orange) | 6° | golden hour starts/ends |
+| True terminator (optional, yellow dotted) | 0° (or −0.27° with the sun's angular diameter) | geometric day/night line, no refraction |
 | Sunrise / sunset (white) | −0.833° | official day/night line (refraction + solar radius) |
 | Civil twilight (light blue) | −6° | |
 | Nautical twilight (blue dashed) | −12° | |
 | Astronomical twilight (purple dotted) | −18° | beyond this it is fully dark |
 
-The zones are shaded in steps, so the darkest area is true night. There is also an optional
-sub-solar point marker ☀ and a readout of the sun altitude at the map centre. Settings are
-saved in localStorage.
+Options:
+- Turn each line on or off, and change its colour.
+- Stepped darkness shading for twilight and night.
+- Tints for golden hour (< 6°) and low sun (6–20°).
+- Opacity sliders.
+- A sub-solar point marker.
+- "Follow forecast timeline" or live mode.
+- Sun altitude and phase at the map centre.
 
-## Why it works in 3D
+Settings are saved in localStorage.
 
-Windy's map is Leaflet-GL on top of MapLibre. Leaflet-GL `L.Polyline` / `L.Polygon` are drawn
-by a flat SVG/canvas overlay, which does not follow the globe. This plugin adds native
-**MapLibre GeoJSON sources with fill/line/circle layers** via `map.maplibreMap`, so MapLibre
-projects them itself, in both mercator and globe modes. The layers are re-added when Windy
-rebuilds its style (`styledata`), for example when switching between 2D and 3D.
+## How it renders (and why it works in 3D)
 
-Each boundary is the small circle of radius `90° + h0` around the antisolar point. The polygons
-are closed over the pole when needed and split at the antimeridian (`src/solar.ts`). The sun
-position uses the NOAA solar equations.
+Windy's 3D globe is not MapLibre. It is Windy's own WebGL renderer on `#globeCanvas`, so
+Leaflet or MapLibre layers never reach it. This plugin draws everything in **one fragment
+shader on its own transparent WebGL canvas**, stacked directly above the active map canvas:
+
+- **2D:** each pixel's lon/lat comes from the MapLibre centre and zoom (web mercator).
+- **3D:** the globe draws a unit sphere `P = (cosφ·cosλ, cosφ·sinλ, sinφ)` with a `uMatMVP`
+  matrix. A page-wide wrapper on WebGL `uniformMatrix4fv` (only for `#globeCanvas` and only for
+  the globe's surface shaders) records that matrix. The shader inverts it, casts a ray per
+  pixel and intersects the sphere.
+
+For every pixel the sun altitude is `asin(P · sun)`. Lines are drawn where the altitude crosses
+a threshold, using screen-space derivatives, so they are anti-aliased, constant-width and
+dashed in pixels. The sun position uses the NOAA solar equations (`src/solar.ts`).
 
 ## Develop / install
 

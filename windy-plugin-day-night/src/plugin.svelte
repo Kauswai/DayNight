@@ -9,49 +9,82 @@
     {#if error}
         <div class="dn__error size-s">{error}</div>
     {/if}
+    {#if waitingForGlobe}
+        <div class="dn__hint size-xs">
+            Waiting for the 3D globe to draw… if the lines don't appear, drag the globe once.
+        </div>
+    {/if}
 
     <div class="dn__zones">
         {#each ZONES as zone}
-            <label class="dn__zone" title={zone.hint}>
-                <input type="checkbox" bind:checked={opts.lines[zone.id]} />
-                <svg width="26" height="8" class="dn__swatch">
+            <div class="dn__zone" title={zone.hint}>
+                <input type="checkbox" bind:checked={opts.lines[zone.id]} id="dn-{zone.id}" />
+                <input
+                    type="color"
+                    class="dn__color"
+                    title="Line colour"
+                    bind:value={opts.colors[zone.id]}
+                />
+                <svg width="24" height="8" class="dn__swatch">
                     <line
                         x1="1"
                         y1="4"
-                        x2="25"
+                        x2="23"
                         y2="4"
-                        stroke={zone.color}
-                        stroke-width={zone.width + 0.6}
-                        stroke-dasharray={zone.dash ? zone.dash.map(d => d * zone.width * 1.6).join(' ') : ''}
+                        stroke={opts.colors[zone.id]}
+                        stroke-width={zone.width + 0.4}
+                        stroke-dasharray={zone.dash ? zone.dash.map(d => d * 0.6).join(' ') : ''}
                     />
                 </svg>
-                <span>{zone.label}</span>
-            </label>
+                <label for="dn-{zone.id}">
+                    {#if zone.id === 'geometric' && opts.sunDiameter}
+                        True terminator (−0.27°)
+                    {:else}
+                        {zone.label}
+                    {/if}
+                </label>
+            </div>
+            {#if zone.id === 'geometric'}
+                <label class="dn__check dn__sub" title="Use the sun's upper limb (angular radius 16′) instead of its centre">
+                    <input type="checkbox" bind:checked={opts.sunDiameter} /> include sun's angular diameter
+                </label>
+            {/if}
         {/each}
+        <button class="dn__reset size-xxs" on:click={resetColors}>reset colours</button>
     </div>
 
-    <div class="dn__row">
+    <div class="dn__group">
         <label class="dn__check">
             <input type="checkbox" bind:checked={opts.shading} /> Shade twilight &amp; night
         </label>
-    </div>
-    {#if opts.shading}
-        <div class="dn__row dn__slider">
-            <span class="size-xs">Shade</span>
-            <input type="range" min="0.03" max="0.35" step="0.01" bind:value={opts.shadeOpacity} />
+        {#if opts.shading}
+            <div class="dn__slider">
+                <span class="size-xs">Dark</span>
+                <input type="range" min="0.03" max="0.35" step="0.01" bind:value={opts.shadeOpacity} />
+            </div>
+        {/if}
+        <label class="dn__check">
+            <input type="checkbox" bind:checked={opts.goldenTint} /> Tint golden hour (&lt; 6°)
+        </label>
+        <label class="dn__check">
+            <input type="checkbox" bind:checked={opts.lowTint} /> Tint low sun (6–20°)
+        </label>
+        {#if opts.goldenTint || opts.lowTint}
+            <div class="dn__slider">
+                <span class="size-xs">Tint</span>
+                <input type="range" min="0.03" max="0.4" step="0.01" bind:value={opts.tintOpacity} />
+            </div>
+        {/if}
+        <div class="dn__slider">
+            <span class="size-xs">Lines</span>
+            <input type="range" min="0.2" max="1" step="0.05" bind:value={opts.lineOpacity} />
         </div>
-    {/if}
-    <div class="dn__row dn__slider">
-        <span class="size-xs">Lines</span>
-        <input type="range" min="0.2" max="1" step="0.05" bind:value={opts.lineOpacity} />
     </div>
 
-    <div class="dn__row">
+    <div class="dn__group">
         <label class="dn__check">
             <input type="checkbox" bind:checked={opts.showSun} /> Sub-solar point ☀
         </label>
-    </div>
-    <div class="dn__row">
         <label class="dn__check" title="Off = always show the current real time">
             <input type="checkbox" bind:checked={followTimeline} /> Follow forecast timeline
         </label>
@@ -72,61 +105,76 @@
     import store from '@windy/store';
     import { onDestroy, onMount } from 'svelte';
 
-    import { DayNightLayer, ZONES } from './dayNightLayer';
-    import { sunAltitude } from './solar';
+    import { DayNightOverlay } from './overlay';
+    import { sunAltitude, sunPosition } from './solar';
+    import { ZONES, defaultColors } from './zones';
 
-    import type { DayNightOptions } from './dayNightLayer';
     import type { SunPosition } from './solar';
+    import type { DayNightOptions } from './zones';
 
     const STORAGE_KEY = 'windy-plugin-day-night-options';
 
-    const defaults: DayNightOptions & { followTimeline: boolean } = {
-        lines: { geometric: false, day: true, civil: true, nautical: true, astro: true },
+    type Saved = DayNightOptions & { followTimeline: boolean };
+
+    const defaults = (): Saved => ({
+        lines: {
+            low: true,
+            golden: true,
+            geometric: false,
+            day: true,
+            civil: true,
+            nautical: true,
+            astro: true,
+        },
+        colors: defaultColors(),
         shading: true,
         shadeOpacity: 0.15,
+        goldenTint: true,
+        lowTint: false,
+        tintOpacity: 0.12,
         lineOpacity: 0.9,
         showSun: true,
+        sunDiameter: false,
         followTimeline: true,
-    };
+    });
 
-    const loadOpts = () => {
+    const loadOpts = (): Saved => {
+        const d = defaults();
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (raw) {
                 const saved = JSON.parse(raw);
-                return { ...defaults, ...saved, lines: { ...defaults.lines, ...(saved.lines || {}) } };
+                return {
+                    ...d,
+                    ...saved,
+                    lines: { ...d.lines, ...(saved.lines || {}) },
+                    colors: { ...d.colors, ...(saved.colors || {}) },
+                };
             }
         } catch {
             /* ignore */
         }
-        return { ...defaults, lines: { ...defaults.lines } };
+        return d;
     };
 
-    const initial = loadOpts();
-    let opts: DayNightOptions = {
-        lines: initial.lines,
-        shading: initial.shading,
-        shadeOpacity: initial.shadeOpacity,
-        lineOpacity: initial.lineOpacity,
-        showSun: initial.showSun,
-    };
-    let followTimeline: boolean = initial.followTimeline;
+    const { followTimeline: initialFollow, ...initialOpts } = loadOpts();
+    let opts: DayNightOptions = initialOpts;
+    let followTimeline = initialFollow;
 
-    let layer: DayNightLayer | null = null;
+    let overlay: DayNightOverlay | null = null;
     let error: string | null = null;
     let currentTs = Date.now();
     let sun: SunPosition | null = null;
     let center: { lat: number; lng: number } | null = null;
     let tsListener: number | null = null;
     let liveTimer: ReturnType<typeof setInterval> | null = null;
+    let statusTimer: ReturnType<typeof setInterval> | null = null;
+    let waitingForGlobe = false;
 
     $: centerAlt = sun && center ? sunAltitude(sun, center.lat, center.lng) : 0;
 
     $: {
-        // react to option changes
-        if (layer) {
-            layer.setOptions({ ...opts, lines: { ...opts.lines } });
-        }
+        overlay?.update(sun ?? sunPosition(currentTs), opts);
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...opts, followTimeline }));
         } catch {
@@ -139,10 +187,11 @@
     function refreshTime() {
         const ts = followTimeline ? (store.get('timestamp') as number) || Date.now() : Date.now();
         currentTs = ts;
-        if (layer) {
-            layer.update(ts);
-            sun = layer.sun;
-        }
+        sun = sunPosition(ts);
+    }
+
+    function resetColors() {
+        opts.colors = defaultColors();
     }
 
     const onTimestamp = () => {
@@ -165,15 +214,19 @@
     const fmtLat = (v: number) => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'N' : 'S'}`;
     const fmtLon = (v: number) => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'E' : 'W'}`;
     const phaseName = (alt: number) =>
-        alt > -0.833
+        alt >= 20
             ? 'day'
-            : alt > -6
-              ? 'civil twilight'
-              : alt > -12
-                ? 'nautical twilight'
-                : alt > -18
-                  ? 'astronomical twilight'
-                  : 'night';
+            : alt >= 6
+              ? 'low sun'
+              : alt > -0.833
+                ? 'golden hour'
+                : alt > -6
+                  ? 'civil twilight'
+                  : alt > -12
+                    ? 'nautical twilight'
+                    : alt > -18
+                      ? 'astronomical twilight'
+                      : 'night';
 
     export const onopen = (_params: unknown) => {
         refreshTime();
@@ -181,7 +234,7 @@
 
     onMount(() => {
         try {
-            layer = new DayNightLayer({ ...opts, lines: { ...opts.lines } });
+            overlay = new DayNightOverlay(opts);
         } catch (e) {
             error = e instanceof Error ? e.message : String(e);
             return;
@@ -190,25 +243,29 @@
         map.on('moveend', onMove);
         onMove();
         refreshTime();
-        // keep "live" mode (and the sun position at the present) ticking
+        // keep "live" mode ticking
         liveTimer = setInterval(() => {
             if (!followTimeline) refreshTime();
         }, 60000);
+        statusTimer = setInterval(() => {
+            waitingForGlobe = !!overlay?.waitingForGlobe;
+        }, 700);
     });
 
     onDestroy(() => {
         if (tsListener !== null) store.off(tsListener);
         if (liveTimer) clearInterval(liveTimer);
+        if (statusTimer) clearInterval(statusTimer);
         map.off('moveend', onMove);
-        layer?.destroy();
-        layer = null;
+        overlay?.destroy();
+        overlay = null;
     });
 </script>
 
 <style lang="less">
     .dn {
         padding: 4px 2px;
-        min-width: 250px;
+        min-width: 260px;
         &__head {
             display: flex;
             align-items: baseline;
@@ -228,10 +285,14 @@
             color: #ff8080;
             margin-bottom: 6px;
         }
+        &__hint {
+            color: #ffd27a;
+            margin-bottom: 6px;
+        }
         &__zones {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
             margin-bottom: 6px;
         }
         &__zone,
@@ -242,18 +303,50 @@
             cursor: pointer;
             font-size: 12px;
             line-height: 1.3;
-            input {
+            input[type='checkbox'] {
                 margin: 0;
                 cursor: pointer;
             }
+            label {
+                cursor: pointer;
+            }
+        }
+        &__sub {
+            padding-left: 20px;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        &__color {
+            width: 18px;
+            height: 16px;
+            padding: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+            flex: none;
         }
         &__swatch {
             flex: none;
             background: rgba(0, 0, 0, 0.35);
             border-radius: 2px;
         }
-        &__row {
-            margin: 3px 0;
+        &__reset {
+            align-self: flex-end;
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: 0.6;
+            cursor: pointer;
+            text-decoration: underline dotted;
+            padding: 0;
+        }
+        &__group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            padding-top: 5px;
+            margin-top: 3px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
         }
         &__slider {
             display: flex;
@@ -270,7 +363,7 @@
         &__info {
             margin-top: 6px;
             padding-top: 6px;
-            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
             opacity: 0.85;
             line-height: 1.45;
         }
