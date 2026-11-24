@@ -6,6 +6,7 @@
         </span>
     </div>
 
+    <div class="dn__body" on:wheel|stopPropagation>
     {#if error}
         <div class="dn__error size-s">{error}</div>
     {/if}
@@ -53,7 +54,8 @@
         <button class="dn__reset size-xxs" on:click={resetColors}>reset colours</button>
     </div>
 
-    <div class="dn__group">
+    <details class="dn__group" bind:open={ui.shadeOpen}>
+        <summary class="dn__summary">Shading &amp; tints</summary>
         <label class="dn__check">
             <input type="checkbox" bind:checked={opts.shading} /> Shade twilight &amp; night
         </label>
@@ -79,16 +81,17 @@
             <span class="size-xs">Lines</span>
             <input type="range" min="0.2" max="1" step="0.05" bind:value={opts.lineOpacity} />
         </div>
-    </div>
+    </details>
 
-    <div class="dn__group">
+    <details class="dn__group" bind:open={ui.moreOpen}>
+        <summary class="dn__summary">Sun &amp; time</summary>
         <label class="dn__check">
             <input type="checkbox" bind:checked={opts.showSun} /> Sub-solar point ☀
         </label>
         <label class="dn__check" title="Off = always show the current real time">
             <input type="checkbox" bind:checked={followTimeline} /> Follow forecast timeline
         </label>
-    </div>
+    </details>
 
     {#if sun}
         <div class="dn__info size-xs">
@@ -98,6 +101,7 @@
             {/if}
         </div>
     {/if}
+    </div>
 </section>
 
 <script lang="ts">
@@ -170,6 +174,20 @@
     let liveTimer: ReturnType<typeof setInterval> | null = null;
     let statusTimer: ReturnType<typeof setInterval> | null = null;
     let waitingForGlobe = false;
+
+    /** Which collapsible sections are open (remembered) */
+    const UI_KEY = 'windy-plugin-day-night-ui';
+    let ui = { shadeOpen: false, moreOpen: false };
+    try {
+        ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') };
+    } catch {
+        /* ignore */
+    }
+    $: try {
+        localStorage.setItem(UI_KEY, JSON.stringify(ui));
+    } catch {
+        /* ignore */
+    }
 
     $: centerAlt = sun && center ? sunAltitude(sun, center.lat, center.lng) : 0;
 
@@ -264,14 +282,32 @@
 
 <style lang="less">
     .dn {
-        padding: 4px 2px;
-        min-width: 260px;
+        padding: 2px 0;
+        width: 270px;
+        max-width: 100%;
         &__head {
             display: flex;
             align-items: baseline;
             justify-content: space-between;
             gap: 8px;
-            margin-bottom: 6px;
+            padding: 0 2px 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        /* only the body scrolls, so the panel never grows over Windy's own controls */
+        &__body {
+            max-height: min(42vh, 330px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 5px 6px 2px 2px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+            &::-webkit-scrollbar {
+                width: 6px;
+            }
+            &::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 3px;
+            }
         }
         &__title {
             font-size: 15px;
@@ -317,13 +353,28 @@
             opacity: 0.8;
         }
         &__color {
-            width: 18px;
-            height: 16px;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
             padding: 0;
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            border-radius: 50%;
             background: none;
             cursor: pointer;
             flex: none;
+            overflow: hidden;
+            &::-webkit-color-swatch-wrapper {
+                padding: 0;
+            }
+            &::-webkit-color-swatch {
+                border: none;
+                border-radius: 50%;
+            }
+            &::-moz-color-swatch {
+                border: none;
+                border-radius: 50%;
+            }
         }
         &__swatch {
             flex: none;
@@ -341,12 +392,20 @@
             padding: 0;
         }
         &__group {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            padding-top: 5px;
+            padding-top: 4px;
             margin-top: 3px;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
+            > :not(summary) {
+                margin: 3px 0 3px 4px;
+            }
+        }
+        &__summary {
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            opacity: 0.85;
+            padding: 2px 0;
+            user-select: none;
         }
         &__slider {
             display: flex;
