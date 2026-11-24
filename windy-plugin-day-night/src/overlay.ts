@@ -83,10 +83,10 @@ void main() {
 
     // ---- tints and darkness steps (smooth 1px edges)
     float hw = 0.5 * fw;
-    float below20 = 1.0 - smoothstep(20.0 - hw, 20.0 + hw, alt);
+    float below18 = 1.0 - smoothstep(18.0 - hw, 18.0 + hw, alt);
     float below6 = 1.0 - smoothstep(6.0 - hw, 6.0 + hw, alt);
     float belowSet = 1.0 - smoothstep(-0.833 - hw, -0.833 + hw, alt);
-    col = over(col, uLow.rgb, uLow.a * (below20 - below6));
+    col = over(col, uLow.rgb, uLow.a * (below18 - below6));
     col = over(col, uGold.rgb, uGold.a * (below6 - belowSet));
 
     float k = 0.0;

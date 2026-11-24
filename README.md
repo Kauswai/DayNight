@@ -6,7 +6,7 @@ globe**.
 
 | Line (default colour) | Sun altitude | Meaning |
 |---|---|---|
-| Low sun (pale yellow, dashed) | 20° | below this the sun is low |
+| Low sun (pale yellow, dashed) | 18° | below this the sun is low (mirror of the −18° astronomical-night line) |
 | Golden hour (orange) | 6° | golden hour starts/ends |
 | True terminator (optional, yellow dotted) | 0° (or −0.27° with the sun's angular diameter) | geometric day/night line, no refraction |
 | Sunrise / sunset (white) | −0.833° | official day/night line (refraction + solar radius) |
@@ -17,7 +17,7 @@ globe**.
 Options:
 - Turn each line on or off, and change its colour.
 - Stepped darkness shading for twilight and night.
-- Tints for golden hour (< 6°) and low sun (6–20°).
+- Tints for golden hour (< 6°) and low sun (6–18°).
 - Opacity sliders.
 - A sub-solar point marker.
 - "Follow forecast timeline" or live mode.

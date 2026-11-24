@@ -24,12 +24,12 @@ export const SUN_SEMI_DIAMETER = 0.2667;
 export const ZONES: ZoneDef[] = [
     {
         id: 'low',
-        label: 'Low sun (20°)',
-        altitude: 20,
+        label: 'Low sun (18°)',
+        altitude: 18,
         color: '#fff1a6',
         dash: [10, 6],
         width: 1.5,
-        hint: 'Sun 20° above the horizon: below this the sun is low, with long shadows and weak heating.',
+        hint: 'Sun 18° above the horizon (mirror of the −18° astronomical-night line): below this the sun is low, with long shadows and weak heating.',
     },
     {
         id: 'golden',
@@ -96,7 +96,7 @@ export interface DayNightOptions {
     shadeOpacity: number;
     /** Orange tint between sunrise/sunset and 6° */
     goldenTint: boolean;
-    /** Pale yellow tint between 6° and 20° */
+    /** Pale yellow tint between 6° and 18° */
     lowTint: boolean;
     tintOpacity: number;
     lineOpacity: number;

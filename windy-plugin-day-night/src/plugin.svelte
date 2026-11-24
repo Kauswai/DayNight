@@ -95,7 +95,7 @@
             <input type="checkbox" bind:checked={opts.goldenTint} /> Tint golden hour (&lt; 6°)
         </label>
         <label class="dn__check">
-            <input type="checkbox" bind:checked={opts.lowTint} /> Tint low sun (6–20°)
+            <input type="checkbox" bind:checked={opts.lowTint} /> Tint low sun (6–18°)
         </label>
         {#if opts.goldenTint || opts.lowTint}
             <div class="dn__slider">
@@ -313,7 +313,7 @@
     const fmtLat = (v: number) => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'N' : 'S'}`;
     const fmtLon = (v: number) => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'E' : 'W'}`;
     const phaseName = (alt: number) =>
-        alt >= 20
+        alt >= 18
             ? 'day'
             : alt >= 6
               ? 'low sun'
