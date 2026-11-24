@@ -21,6 +21,7 @@ Options:
 - Opacity sliders.
 - A sub-solar point marker.
 - "Follow forecast timeline" or live mode.
+- Movable panel: the ⇱ button floats the panel so you can drag it anywhere by its title bar (⇲ docks it back). The position is remembered.
 - Sun altitude and phase at the map centre.
 
 Settings are saved in localStorage.

@@ -1,9 +1,35 @@
-<section class="dn">
-    <div class="dn__head">
+<div class="dn-home" bind:this={home}>
+{#if ui.floating}
+    <div class="dn-home__note size-xs">
+        Day-Night panel is floating —
+        <button class="dn__reset" on:click={() => (ui.floating = false)}>dock it here</button>
+    </div>
+{/if}
+<section
+    class="dn"
+    class:dn--float={ui.floating}
+    bind:this={panel}
+    style={ui.floating ? `left:${ui.x}px;top:${ui.y}px` : ''}
+>
+    <div
+        class="dn__head"
+        on:pointerdown={dragStart}
+        on:pointermove={dragMove}
+        on:pointerup={dragEnd}
+        on:pointercancel={dragEnd}
+        title={ui.floating ? 'Drag to move' : ''}
+    >
         <span class="dn__title">🌗 Day-Night</span>
         <span class="dn__time size-xs" title="Time used for the terminator (UTC)">
             {followTimeline ? '' : 'LIVE · '}{fmtTime(currentTs)}
         </span>
+        <button
+            class="dn__pin"
+            title={ui.floating ? 'Dock the panel back into Windy' : 'Float the panel — then drag it anywhere'}
+            on:click={toggleFloat}
+        >
+            {ui.floating ? '⇲' : '⇱'}
+        </button>
     </div>
 
     <div class="dn__body" on:wheel|stopPropagation>
@@ -103,6 +129,7 @@
     {/if}
     </div>
 </section>
+</div>
 
 <script lang="ts">
     import { map } from '@windy/map';
@@ -177,7 +204,7 @@
 
     /** Which collapsible sections are open (remembered) */
     const UI_KEY = 'windy-plugin-day-night-ui';
-    let ui = { shadeOpen: false, moreOpen: false };
+    let ui = { shadeOpen: false, moreOpen: false, floating: false, x: 12, y: 80 };
     try {
         ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') };
     } catch {
@@ -188,6 +215,60 @@
     } catch {
         /* ignore */
     }
+
+    /* ---- floating panel: moved to <body> so it can sit anywhere on screen ---- */
+    let home: HTMLDivElement;
+    let panel: HTMLElement;
+    let drag: { id: number; dx: number; dy: number } | null = null;
+
+    const clampPos = () => {
+        if (!panel) return;
+        const w = panel.offsetWidth || 280;
+        const h = panel.offsetHeight || 60;
+        ui.x = Math.round(Math.min(Math.max(ui.x, 0), Math.max(0, innerWidth - w)));
+        // keep at least the header on screen
+        ui.y = Math.round(Math.min(Math.max(ui.y, 0), Math.max(0, innerHeight - Math.min(h, 40))));
+    };
+
+    $: if (panel && home) placePanel(ui.floating);
+
+    function placePanel(floating: boolean) {
+        if (floating) {
+            if (panel.parentNode !== document.body) document.body.appendChild(panel);
+            clampPos();
+        } else if (panel.parentNode !== home) {
+            home.appendChild(panel);
+        }
+    }
+
+    function toggleFloat() {
+        if (!ui.floating) {
+            // start floating exactly where the docked panel is now, so nothing jumps
+            const r = panel.getBoundingClientRect();
+            ui.x = r.left;
+            ui.y = r.top;
+        }
+        ui.floating = !ui.floating;
+    }
+
+    function dragStart(e: PointerEvent) {
+        if (!ui.floating || e.button !== 0) return;
+        if ((e.target as HTMLElement).closest('button, input, a')) return;
+        drag = { id: e.pointerId, dx: e.clientX - ui.x, dy: e.clientY - ui.y };
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        e.preventDefault();
+    }
+    function dragMove(e: PointerEvent) {
+        if (!drag || e.pointerId !== drag.id) return;
+        ui.x = e.clientX - drag.dx;
+        ui.y = e.clientY - drag.dy;
+        clampPos();
+    }
+    function dragEnd(e: PointerEvent) {
+        if (!drag || e.pointerId !== drag.id) return;
+        drag = null;
+    }
+    const onResize = () => ui.floating && clampPos();
 
     $: centerAlt = sun && center ? sunAltitude(sun, center.lat, center.lng) : 0;
 
@@ -268,9 +349,13 @@
         statusTimer = setInterval(() => {
             waitingForGlobe = !!overlay?.waitingForGlobe;
         }, 700);
+        addEventListener('resize', onResize);
     });
 
     onDestroy(() => {
+        removeEventListener('resize', onResize);
+        // a floating panel lives in <body>: take it back so Svelte removes it with the plugin
+        if (panel && home && panel.parentNode !== home) home.appendChild(panel);
         if (tsListener !== null) store.off(tsListener);
         if (liveTimer) clearInterval(liveTimer);
         if (statusTimer) clearInterval(statusTimer);
@@ -309,11 +394,48 @@
                 border-radius: 3px;
             }
         }
+        &--float {
+            position: fixed;
+            z-index: 900;
+            padding: 8px 10px;
+            color: #fff;
+            font-size: 12px;
+            background: rgba(38, 38, 42, 0.92);
+            border-radius: 10px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            .dn__head {
+                cursor: move;
+                touch-action: none;
+                user-select: none;
+            }
+            .dn__body {
+                max-height: min(60vh, 460px);
+            }
+        }
+        &__pin {
+            flex: none;
+            margin-left: 2px;
+            padding: 0 4px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font-size: 13px;
+            line-height: 16px;
+            cursor: pointer;
+            opacity: 0.8;
+            &:hover {
+                opacity: 1;
+                background: rgba(255, 255, 255, 0.12);
+            }
+        }
         &__title {
             font-size: 15px;
             font-weight: bold;
         }
         &__time {
+            margin-left: auto;
             opacity: 0.75;
             white-space: nowrap;
         }
@@ -425,6 +547,13 @@
             border-top: 1px solid rgba(255, 255, 255, 0.12);
             opacity: 0.85;
             line-height: 1.45;
+        }
+    }
+    .dn-home__note {
+        opacity: 0.8;
+        padding: 2px 0;
+        .dn__reset {
+            font-size: inherit;
         }
     }
 </style>
