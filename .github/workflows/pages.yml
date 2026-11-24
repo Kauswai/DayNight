@@ -1,0 +1,57 @@
+name: pages
+
+# Builds the plugin and serves it on GitHub Pages, so it can be installed in Windy without a
+# local dev server:  https://www.windy.com/dev/kauswai.github.io/DayNight/plugin.js
+# (Windy remembers the plugin URL per account, so it loads the latest build from Pages.)
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - 'windy-plugin-day-night/**'
+            - '.github/workflows/pages.yml'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+concurrency:
+    group: pages
+    cancel-in-progress: false
+
+jobs:
+    build:
+        runs-on: ubuntu-24.04
+        defaults:
+            run:
+                working-directory: windy-plugin-day-night
+        steps:
+            - uses: actions/checkout@v7
+
+            - name: Build plugin
+              run: |
+                  npm install
+                  npm run build
+                  mkdir -p site
+                  cp dist/plugin.min.js site/plugin.js
+                  cat > site/index.html <<'HTML'
+                  <!doctype html><meta charset="utf-8"><title>Day-Night Globe – Windy plugin</title>
+                  <p><a href="https://www.windy.com/dev/kauswai.github.io/DayNight/plugin.js">Install / open the Day-Night Globe plugin in Windy</a> (log in to Windy first).</p>
+                  HTML
+
+            - uses: actions/configure-pages@v6
+            - uses: actions/upload-pages-artifact@v5
+              with:
+                  path: windy-plugin-day-night/site
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-24.04
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - id: deployment
+              uses: actions/deploy-pages@v5

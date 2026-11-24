@@ -25,6 +25,16 @@ Options:
 
 Settings are saved in localStorage.
 
+## Install in Windy (no local server)
+
+Log in to Windy, then open:
+
+**<https://www.windy.com/dev/kauswai.github.io/DayNight/plugin.js>**
+
+Windy installs the plugin to your account and opens it. It stays in your Windy menu and loads
+the latest build from GitHub Pages, which `.github/workflows/pages.yml` rebuilds on every push.
+One-time repo setup: **Settings → Pages → Source: GitHub Actions**.
+
 ## How it renders (and why it works in 3D)
 
 Windy's 3D globe is not MapLibre. It is Windy's own WebGL renderer on `#globeCanvas`, so
@@ -41,7 +51,7 @@ For every pixel the sun altitude is `asin(P · sun)`. Lines are drawn where the 
 a threshold, using screen-space derivatives, so they are anti-aliased, constant-width and
 dashed in pixels. The sun position uses the NOAA solar equations (`src/solar.ts`).
 
-## Develop / install
+## Develop
 
 ```
 cd windy-plugin-day-night
